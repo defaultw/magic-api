@@ -7,3 +7,12 @@ out/
 .settings
 bin/
 .myeclipse
+
+
+magic-api-plugins/magic-api-plugin-task/src/console/dist/*
+magic-api-plugins/magic-api-plugin-task/src/console/node_modules/*
+magic-api-plugins/magic-api-plugin-task/src/console/package-lock.json
+
+magic-api-plugins/magic-api-plugin-component/src/console/dist/*
+magic-api-plugins/magic-api-plugin-component/src/console/node_modules/*
+magic-api-plugins/magic-api-plugin-component/src/console/package-lock.json
