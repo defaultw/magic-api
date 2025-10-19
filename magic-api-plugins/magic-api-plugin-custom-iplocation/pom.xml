@@ -8,10 +8,31 @@
         <groupId>org.ssssssss</groupId>
         <version>2.2.2</version>
     </parent>
+    <groupId>wang.xiaojiang.git</groupId>
     <artifactId>magic-api-plugin-custom-iplocation</artifactId>
+    <version>2.2.2</version>
     <packaging>jar</packaging>
     <name>magic-api-plugin-custom-iplocation</name>
     <description>magic-api-plugin-custom-iplocation</description>
+
+    <distributionManagement>
+        <repository>
+            <!-- repository id 必须与 settings.xml 中 server 的 id 匹配 -->
+            <id>gitea-maven-releases</id>
+            <name>Gitea Releases</name>
+            <!-- Gitea Maven 发布仓库 URL -->
+            <!-- 格式：YOUR_GITEA_URL/api/packages/OWNER/maven -->
+            <!-- OWNER 是你的 Gitea 用户名或组织名 -->
+            <url>https://git.xiaojiang.wang/api/packages/wangxiaojiang/maven</url>
+        </repository>
+        <snapshotRepository>
+            <!-- snapshotRepository id 必须与 settings.xml 中 server 的 id 匹配 -->
+            <id>gitea-maven-snapshots</id>
+            <name>Gitea Snapshots</name>
+            <!-- Gitea Maven Snapshot 仓库 URL -->
+            <url>https://git.xiaojiang.wang/api/packages/wangxiaojiang/maven</url>
+        </snapshotRepository>
+    </distributionManagement>
 
     <properties>
         <cz88db.version>1.0.2.10</cz88db.version>
