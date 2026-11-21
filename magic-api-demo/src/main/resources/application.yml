@@ -1,0 +1,44 @@
+# ==================================================================
+# Magic API Demo - OIDC 统一认证端到端验证
+#
+# 1. TOPIAM 应用「登录 Redirect URI 白名单」需与下方 redirect-uri 逐字符一致：
+#      http://127.0.0.1:9999/magic/web/oauth2/callback
+#    （请通过 http://127.0.0.1:9999/magic/web/index.html 访问编辑器）
+# 2. 启动方式（需在 magic-api-demo 目录下启动，file 存储用相对路径）：
+#      cd magic-api-demo
+#      java -jar target/magic-api-demo-2.2.2.jar
+#    （或 mvn -pl magic-api-demo spring-boot:run）
+# 3. 验证流程：
+#      访问 http://127.0.0.1:9999/magic/web/index.html
+#      -> 点击「统一认证登录 / OIDC Login」按钮跳转 TOPIAM 授权页
+#      -> 授权后回调 http://127.0.0.1:9999/magic/web/oauth2/callback
+#      -> 302 回 index.html?magic-token=... 完成登录
+# ==================================================================
+server:
+  port: 9999
+
+magic-api:
+  web: /magic/web
+  prefix:                # 留空：不启用业务接口前缀（验证环境最简）
+  resource:
+    type: file
+    location: ./magic-api-files/   # 相对路径，以启动 jar 时的工作目录为准（需在 magic-api-demo 目录下启动）
+  security:
+    username: admin
+    password: 123456
+    oauth2:
+      enabled: true
+      # TOPIAM OIDC 配置
+      issuer: https://iam.xiaojiang.wang/api/v1/authorize/esvtb7mdq12gixytwzpaojailynovz6c/oidc
+      client-id: f50b59595f552d9c7b936b108c3c5fba
+      client-secret: dfd0931212c47bf1902d4dcfac1060bc   # TODO: 替换为 TOPIAM 应用详情中的客户端密钥
+      # 显式固定回调地址，必须与 TOPIAM「登录 Redirect URI 白名单」某一条逐字符完全一致
+      # （当前 TOPIAM 白名单为 127.0.0.1 版本；若白名单用 localhost，请同步改回 localhost）
+      redirect-uri: http://127.0.0.1:9999/magic/web/oauth2/callback
+      # scope 必须是 TOPIAM 应用允许的范围；TOPIAM 默认拒绝了 profile，先用最小集 openid
+      # （如需真实用户名 preferred_username，需在 TOPIAM 应用侧启用 profile 后改回 "openid profile"）
+      scopes: openid
+      # TOPIAM 强制要求 PKCE，必须开启（关闭会报 invalid_request: code_challenge）
+      use-pkce: true
+      auto-redirect: false          # true 时打开编辑器直接跳 TOPIAM
+      password-login-enabled: false # false：禁用密码登录，仅 OIDC；true：启用 admin/123456 密码回退

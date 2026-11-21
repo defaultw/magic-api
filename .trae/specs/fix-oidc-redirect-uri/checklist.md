@@ -1,0 +1,5 @@
+- [x] application.yml 含显式 redirect-uri，值为 http://127.0.0.1:9999/magic/web/oauth2/callback（依运行时证据由 localhost 调整为与 TOPIAM 白名单一致的 127.0.0.1）
+- [x] application.yml 显式 use-pkce: false 并有与 TOPIAM PKCE 开关对齐的注释说明；另补 scopes: openid（TOPIAM 拒绝 profile）
+- [x] 重新打包成功（mvn clean package exit 0）
+- [x] authorize 302 Location 中 redirect_uri 解码后为 http://127.0.0.1:9999/magic/web/oauth2/callback，scope=openid，且不含 code_challenge（use-pkce=false 生效）
+- [x] 未改动 Java 代码，密码登录回退与既有 OIDC 流程不受影响

@@ -13,6 +13,7 @@ import org.ssssssss.magicapi.core.annotation.Valid;
 import org.ssssssss.magicapi.core.config.Constants;
 import org.ssssssss.magicapi.core.config.MagicAPIProperties;
 import org.ssssssss.magicapi.core.config.MagicConfiguration;
+import org.ssssssss.magicapi.core.config.Security;
 import org.ssssssss.magicapi.core.context.MagicUser;
 import org.ssssssss.magicapi.core.exception.MagicLoginException;
 import org.ssssssss.magicapi.core.interceptor.Authorization;
@@ -88,6 +89,13 @@ public class MagicWorkbenchController extends MagicController implements MagicEx
 		configJson.put("prefix", properties.getPrefix());
 		configJson.put("autoImportModuleList", properties.getAutoImportModuleList());
 		configJson.put("autoImportPackage", properties.getAutoImportPackage());
+		// 下发OAuth2/OIDC统一认证配置（不含任何密钥），authorizePath为相对编辑器页面目录的路径
+		Security security = properties.getSecurity();
+		Map<String, Object> oauth2 = new HashMap<>();
+		oauth2.put("enabled", security.isOauth2Enabled());
+		oauth2.put("autoRedirect", security.getOauth2() != null && security.getOauth2().isAutoRedirect());
+		oauth2.put("authorizePath", "oauth2/authorize");
+		configJson.put("oauth2", oauth2);
 		return configJson;
 	}
 

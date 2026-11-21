@@ -39,6 +39,7 @@ import org.ssssssss.magicapi.core.handler.MagicWebSocketDispatcher;
 import org.ssssssss.magicapi.core.handler.MagicWorkbenchHandler;
 import org.ssssssss.magicapi.core.interceptor.AuthorizationInterceptor;
 import org.ssssssss.magicapi.core.interceptor.DefaultAuthorizationInterceptor;
+import org.ssssssss.magicapi.core.interceptor.OAuth2AuthorizationInterceptor;
 import org.ssssssss.magicapi.core.interceptor.RequestInterceptor;
 import org.ssssssss.magicapi.core.interceptor.ResultProvider;
 import org.ssssssss.magicapi.core.logging.LoggerManager;
@@ -52,6 +53,7 @@ import org.ssssssss.magicapi.core.service.impl.DefaultMagicAPIService;
 import org.ssssssss.magicapi.core.service.impl.DefaultMagicResourceService;
 import org.ssssssss.magicapi.core.service.impl.RequestMagicDynamicRegistry;
 import org.ssssssss.magicapi.core.servlet.MagicRequestContextHolder;
+import org.ssssssss.magicapi.core.web.MagicOAuth2Controller;
 import org.ssssssss.magicapi.core.web.MagicResourceController;
 import org.ssssssss.magicapi.core.web.MagicWorkbenchController;
 import org.ssssssss.magicapi.core.web.RequestHandler;
@@ -344,6 +346,10 @@ public class MagicAPIAutoConfiguration implements WebMvcConfigurer, WebSocketCon
 					.registerController(new MagicDataSourceController(configuration))
 					.registerController(new MagicBackupController(configuration));
 			pluginConfigurations.forEach(it -> it.controllerRegister().register(mapping, configuration));
+			// OAuth2/OIDC统一认证开启时注册OAuth2登录控制器
+			if (security.isOauth2Enabled() && configuration.getAuthorizationInterceptor() instanceof OAuth2AuthorizationInterceptor) {
+				mapping.registerController(new MagicOAuth2Controller(properties, (OAuth2AuthorizationInterceptor) configuration.getAuthorizationInterceptor()));
+			}
 		}
 		// 注册接收推送的接口
 		if (StringUtils.isNotBlank(properties.getSecretKey())) {
@@ -383,7 +389,11 @@ public class MagicAPIAutoConfiguration implements WebMvcConfigurer, WebSocketCon
 	@ConditionalOnMissingBean
 	public AuthorizationInterceptor authorizationInterceptor(MagicAPIProperties properties){
 		Security security = properties.getSecurity();
-		return new DefaultAuthorizationInterceptor(security.getUsername(), security.getPassword());
+		DefaultAuthorizationInterceptor defaultInterceptor = new DefaultAuthorizationInterceptor(security.getUsername(), security.getPassword());
+		if (security.isOauth2Enabled()) {
+			return new OAuth2AuthorizationInterceptor(security.getOauth2(), defaultInterceptor);
+		}
+		return defaultInterceptor;
 	}
 
 	@Override

@@ -1,0 +1,5 @@
+- [x] application.yml use-pkce: true 且注释说明 TOPIAM 强制 PKCE
+- [x] password-login-enabled 注释与实际值（false）语义一致
+- [x] 重新打包成功
+- [x] authorize 302 Location 同时含：redirect_uri（127.0.0.1 版本）、scope=openid、code_challenge、code_challenge_method=S256
+- [x] 无 Java 代码改动

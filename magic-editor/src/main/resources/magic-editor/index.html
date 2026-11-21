@@ -61,6 +61,62 @@
 		}
 	</script>
 	<script src="./config-js" onload="showMaLoadingText()" onerror="showMaLoadingText()"></script>
+	<script>
+		(function () {
+			'use strict';
+			var TOKEN_KEY = 'magic-token';
+			// OIDC 回调：query/hash 携带 magic-token 时优先同步落库，随后清除参数并结束
+			var queryToken = new URLSearchParams(location.search).get('magic-token');
+			var hash = location.hash;
+			try { hash = decodeURIComponent(hash); } catch (e) { /* ignore malformed hash */ }
+			var hashMatch = hash.match(/magic-token=([A-Za-z0-9_-]+)/);
+			if (queryToken || hashMatch) {
+				try { localStorage.setItem(TOKEN_KEY, queryToken || hashMatch[1]); } catch (e) { /* ignore */ }
+				history.replaceState(null, '', location.pathname);
+				return;
+			}
+			fetch('config.json').then(function (response) {
+				return response.json();
+			}).then(function (config) {
+				var oauth2 = config && config.oauth2;
+				if (!oauth2 || !oauth2.enabled || !oauth2.authorizePath) return;
+				// 相对当前页面解析 authorizePath（兼容 context-path 部署场景）
+				var authorizeUrl = new URL(String(oauth2.authorizePath), location.href).toString();
+				// autoRedirect：无 token 时自动发起 OIDC 授权码流程
+				if (oauth2.autoRedirect && !localStorage.getItem(TOKEN_KEY)) {
+					location.replace(authorizeUrl);
+					return;
+				}
+				// 登录框渲染后注入「统一认证登录」按钮（幂等，可重复触发）
+				var inject = function () {
+					if (document.getElementById('magic-oidc-login-button')) return;
+					var copyright = document.querySelector('.magic-login-copyright');
+					if (!copyright) return;
+					var root = copyright.closest ? copyright.closest('.magic-login') : copyright.parentNode;
+					var box = (root && root.querySelector('.magic-login-box')) || root || copyright.parentNode;
+					var link = document.createElement('a');
+					link.id = 'magic-oidc-login-button';
+					link.href = authorizeUrl;
+					link.textContent = '统一认证登录 / OIDC Login';
+					link.style.display = 'block';
+					link.style.margin = '12px auto 0';
+					link.style.padding = '8px 12px';
+					link.style.textAlign = 'center';
+					link.style.border = '1px solid #0075ff';
+					link.style.color = '#0075ff';
+					link.style.borderRadius = '4px';
+					link.style.background = '#fff';
+					link.style.textDecoration = 'none';
+					link.style.fontSize = '14px';
+					box.appendChild(link);
+				};
+				new MutationObserver(inject).observe(document.body, { childList: true, subtree: true });
+				inject();
+			}).catch(function (error) {
+				console.warn('[magic-editor] load config.json for oauth2 failed:', error);
+			});
+		})();
+	</script>
 	<div id="app"></div>
 	
 </body>
