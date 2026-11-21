@@ -1,0 +1,6 @@
+- [x] 退出注销后约 1 秒内整页刷新，Apple 风格登录页与 SSO 按钮恢复（实测：确定注销后 2 秒内 appleStyleLen=4632、#magic-oidc-login-button 存在、body 含 magic-login-password-hidden）
+- [x] 已登录状态下守护不触发任何刷新/干扰（登录态期间轮询仅置 wasLoggedIn=true，未发生任何重载）
+- [x] 刷新后不形成刷新循环（wasLoggedIn 重置机制；实测刷新后 6 秒状态稳定，无二次刷新）
+- [x] 未改预编译 JS、未动 app.js 退出逻辑（仅改 magic-editor/src/main/resources/magic-editor/index.html 注入脚本）
+- [x] 打包成功、服务启动、浏览器完整闭环实测通过（用户 Chrome：SSO 登录 → li[110] 退出 → 确定注销 → 自动刷新恢复 Apple 登录页，截图确认）
+- [x] 退出后无原始登录页闪现：样式同步注入（sessionStorage 缓存 + 脚本解析期应用），退出不再 reload（Observer 自动重注入），实测无闪现、无 reload、状态稳定（追加 Task 3）
