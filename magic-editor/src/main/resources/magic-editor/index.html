@@ -61,6 +61,7 @@
 		}
 	</script>
 	<script src="./config-js" onload="showMaLoadingText()" onerror="showMaLoadingText()"></script>
+	<style id="magic-apple-login-style"></style>
 	<script>
 		(function () {
 			'use strict';
@@ -84,30 +85,59 @@
 				var authorizeUrl = new URL(String(oauth2.authorizePath), location.href).toString();
 				// autoRedirect：无 token 时自动发起 OIDC 授权码流程
 				if (oauth2.autoRedirect && !localStorage.getItem(TOKEN_KEY)) {
+					// 解除 app.js 注册的离开确认，避免跳转被「系统可能不会保存您所做的更改」拦截
+					window.onbeforeunload = null;
 					location.replace(authorizeUrl);
 					return;
 				}
-				// 登录框渲染后注入「统一认证登录」按钮（幂等，可重复触发）
+				// ===== Apple 风格登录页样式（仅在 oauth2.enabled 时注入，幂等：style 节点唯一）=====
+				var appleCss = [
+					'.magic-login{background:#f5f5f7 !important;background-image:none !important;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;}',
+					'.magic-login .magic-login-box{width:400px !important;padding:64px 44px 44px !important;top:50% !important;margin-top:-160px !important;border-radius:24px !important;background:rgba(255,255,255,.86) !important;-webkit-backdrop-filter:blur(24px) saturate(1.6);backdrop-filter:blur(24px) saturate(1.6);box-shadow:0 1px 2px rgba(0,0,0,.04),0 8px 32px rgba(0,0,0,.10),0 24px 68px rgba(0,0,0,.08) !important;}',
+					'.magic-login .magic-login-logo{width:112px !important;height:112px !important;top:-56px !important;margin-left:-56px !important;border-radius:56px !important;background-size:72px 72px !important;box-shadow:0 1px 3px rgba(0,0,0,.06),0 12px 28px rgba(0,0,0,.10) !important;}',
+					'.magic-login .magic-login-text{height:auto !important;line-height:1.4 !important;margin-top:8px !important;font-size:26px !important;font-weight:600 !important;letter-spacing:-.01em !important;color:#1d1d1f !important;}',
+					'.magic-login .magic-login-text span{font-size:15px !important;color:#6e6e73 !important;font-weight:400 !important;}',
+					'.magic-login .magic-login-row{width:100% !important;margin:18px 0 0 !important;}',
+					'.magic-login .magic-login-row svg{top:16px !important;left:16px !important;fill:#86868b !important;}',
+					'.magic-login .magic-login-row.error{border-radius:12px !important;border:1px solid #ffd2cf !important;padding:10px 0 10px 40px !important;}',
+					'.magic-login .magic-login-box .magic-input{height:52px !important;line-height:52px !important;border-radius:12px !important;border:1px solid #d2d2d7 !important;background:#fff !important;padding-left:44px !important;font-size:16px !important;color:#1d1d1f !important;transition:border-color .18s ease,box-shadow .18s ease !important;}',
+					'.magic-login .magic-login-box .magic-input::placeholder{color:#a1a1a6 !important;}',
+					'.magic-login .magic-login-box .magic-input:focus{border-color:#0071e3 !important;box-shadow:0 0 0 4px rgba(0,113,227,.16) !important;outline:none !important;}',
+					'.magic-login .magic-login-box .magic-button{width:100% !important;height:52px !important;line-height:52px !important;margin-top:22px !important;border-radius:980px !important;background:#0071e3 !important;border:none !important;color:#fff !important;font-size:17px !important;font-weight:600 !important;letter-spacing:.01em !important;cursor:pointer;transition:background-color .18s ease,transform .12s ease,box-shadow .18s ease !important;}',
+					'.magic-login .magic-login-box .magic-button:hover,.magic-login .magic-login-box .magic-button:focus{background:#0077ed !important;border:none !important;box-shadow:0 6px 18px rgba(0,113,227,.28) !important;color:#fff !important;}',
+					'.magic-login .magic-login-box .magic-button:active{background:#0066cc !important;transform:scale(.98) !important;}',
+					'.magic-login .magic-login-copyright{bottom:36px !important;font-size:13px !important;color:#86868b !important;font-weight:400 !important;}',
+					'.magic-login .magic-login-copyright a{color:#0066cc !important;}',
+					'body.magic-login-password-hidden .magic-login-box .magic-login-row:not(#magic-oidc-button-row){display:none !important;}',
+					'#magic-oidc-login-button{display:flex !important;align-items:center !important;justify-content:center !important;width:100% !important;height:52px !important;box-sizing:border-box !important;margin-top:22px !important;border-radius:980px !important;background:#0071e3 !important;border:none !important;color:#fff !important;font-family:inherit !important;font-size:17px !important;font-weight:600 !important;letter-spacing:.01em !important;text-decoration:none !important;cursor:pointer;transition:background-color .18s ease,transform .12s ease,box-shadow .18s ease !important;}',
+					'#magic-oidc-login-button:hover,#magic-oidc-login-button:focus{background:#0077ed !important;box-shadow:0 6px 18px rgba(0,113,227,.28) !important;color:#fff !important;outline:none !important;}',
+					'#magic-oidc-login-button:active{background:#0066cc !important;transform:scale(.98) !important;}',
+					'#magic-oidc-login-button .magic-oidc-arrow{margin-left:8px;font-weight:400;transition:transform .18s ease;}',
+					'#magic-oidc-login-button:hover .magic-oidc-arrow{transform:translateX(3px);}',
+					'@media (prefers-reduced-motion: reduce){#magic-oidc-login-button,.magic-login .magic-login-box .magic-button{transition:none !important;}}',
+					'@media (max-width:480px){.magic-login .magic-login-box{width:calc(100% - 40px) !important;max-width:400px;padding:56px 28px 36px !important;}.magic-login .magic-login-text{font-size:22px !important;}}'
+				].join('\n');
+				var styleEl = document.getElementById('magic-apple-login-style');
+				if (styleEl) styleEl.textContent = appleCss;
+				// ===== 登录框渲染后注入 Apple 风格 SSO 按钮（幂等）=====
 				var inject = function () {
-					if (document.getElementById('magic-oidc-login-button')) return;
 					var copyright = document.querySelector('.magic-login-copyright');
 					if (!copyright) return;
 					var root = copyright.closest ? copyright.closest('.magic-login') : copyright.parentNode;
 					var box = (root && root.querySelector('.magic-login-box')) || root || copyright.parentNode;
+					// passwordLoginEnabled=false 时隐藏无效的账号密码表单，仅保留标题+SSO按钮+版权
+					if (oauth2.passwordLoginEnabled === false) {
+						document.body.classList.add('magic-login-password-hidden');
+					}
+					if (document.getElementById('magic-oidc-login-button')) return;
 					var link = document.createElement('a');
 					link.id = 'magic-oidc-login-button';
 					link.href = authorizeUrl;
-					link.textContent = '统一认证登录 / OIDC Login';
-					link.style.display = 'block';
-					link.style.margin = '12px auto 0';
-					link.style.padding = '8px 12px';
-					link.style.textAlign = 'center';
-					link.style.border = '1px solid #0075ff';
-					link.style.color = '#0075ff';
-					link.style.borderRadius = '4px';
-					link.style.background = '#fff';
-					link.style.textDecoration = 'none';
-					link.style.fontSize = '14px';
+					link.innerHTML = '统一认证登录 <span class="magic-oidc-arrow">›</span>';
+					// 点击瞬间解除离开确认（app.js 注册的 onbeforeunload），保证 SSO 跳转不被拦截
+					link.addEventListener('click', function () {
+						window.onbeforeunload = null;
+					});
 					box.appendChild(link);
 				};
 				new MutationObserver(inject).observe(document.body, { childList: true, subtree: true });

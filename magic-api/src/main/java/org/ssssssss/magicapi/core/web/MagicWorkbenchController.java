@@ -95,6 +95,8 @@ public class MagicWorkbenchController extends MagicController implements MagicEx
 		oauth2.put("enabled", security.isOauth2Enabled());
 		oauth2.put("autoRedirect", security.getOauth2() != null && security.getOauth2().isAutoRedirect());
 		oauth2.put("authorizePath", "oauth2/authorize");
+		// 前端据此决定是否隐藏账号密码表单（false 时登录框仅保留SSO按钮）
+		oauth2.put("passwordLoginEnabled", security.getOauth2() == null || security.getOauth2().isPasswordLoginEnabled());
 		configJson.put("oauth2", oauth2);
 		return configJson;
 	}

@@ -1,0 +1,7 @@
+- [x] readConfig oauth2 节点含 passwordLoginEnabled 字段（false 兜底逻辑：无 oauth2 配置时默认 true 保持兼容）
+- [x] 登录页呈现 Apple 风格：系统字体栈、#f5f5f7 背景、白色 24px 圆角卡片+backdrop-blur+柔和阴影、输入框聚焦 #0071e3 光晕（浏览器实测计算样式确认）
+- [x] OIDC 按钮为 Apple pill 主按钮（border-radius:980px，#0071e3，hover 微交互），视觉层级最高
+- [x] passwordLoginEnabled=false 时账号密码表单隐藏（body.magic-login-password-hidden，实测零可见输入框）
+- [x] 注入幂等：style 节点 id 唯一、按钮 getElementById 防重；oauth2.enabled=false 时不写入样式不加类，页面保持原样
+- [x] 未改动预编译前端资源文件（仅 index.html 注入 + MagicWorkbenchController 一个字段）
+- [x] 打包成功、服务启动、浏览器截图验证通过（PASS）

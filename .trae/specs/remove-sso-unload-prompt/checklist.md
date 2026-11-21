@@ -1,0 +1,4 @@
+- [ ] SSO 按钮 click 时同步解除 window.onbeforeunload，跳转无确认框
+- [ ] autoRedirect 分支导航前解除（竞态防护）
+- [ ] 未改预编译 JS、未动 blockClose 全局配置，登录后编辑器关闭保护保留
+- [ ] 打包成功、服务启动、浏览器实测点击无确认框
