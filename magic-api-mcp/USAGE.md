@@ -87,6 +87,49 @@ curl -s -X POST http://localhost:8080/mcp/magic -H "Content-Type: application/js
   -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' | grep -o '"name":"magic_[a-z_]*"' | wc -l
 ```
 
+### 5. Cherry Studio 接入（从 JSON 导入）
+
+服务端为 **Streamable HTTP** 传输（单一 POST 端点，无独立 SSE 流），Cherry Studio 中类型须选 `streamableHttp`，不要选 `sse`。
+
+操作路径：**设置 → MCP 服务器 → + 添加服务器 → 从 JSON 导入**，粘贴下方配置后点击确定，返回列表将 `magic-api` 右侧开关启用即可。
+
+**开启 token 鉴权时**（服务端配置了 `magic-api.mcp.token`）：
+
+```json
+{
+  "mcpServers": {
+    "magic-api": {
+      "type": "streamableHttp",
+      "url": "http://127.0.0.1:9999/mcp/magic",
+      "headers": {
+        "Authorization": "Bearer <你的MCP-Token>"
+      }
+    }
+  }
+}
+```
+
+> 等价写法：headers 中用自定义头 `"X-Mcp-Token": "<你的MCP-Token>"`，两种鉴权头服务端均支持。
+
+**未开启鉴权时**（`magic-api.mcp.token` 为空，开放模式）：
+
+```json
+{
+  "mcpServers": {
+    "magic-api": {
+      "type": "streamableHttp",
+      "url": "http://127.0.0.1:9999/mcp/magic"
+    }
+  }
+}
+```
+
+说明：
+
+- `url` 按实际部署替换 host/port 与路径（默认路径 `/mcp/magic`，可用 `magic-api.mcp.path` 修改）
+- 导入仅生成草稿，替换 token 后确认保存，并确保服务器开关为启用状态
+- 验证：在对话框中启用该 MCP 后提问「列出 magic-api 分组树」，应触发 `magic_group_tree` 工具调用
+
 ## 配置项（全部可选）
 
 | 配置项 | 默认值 | 说明 |
