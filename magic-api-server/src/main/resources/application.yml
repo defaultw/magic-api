@@ -32,7 +32,7 @@ magic-api:
       # TOPIAM OIDC 配置
       issuer: https://iam.xiaojiang.wang/api/v1/authorize/esvtb7mdq12gixytwzpaojailynovz6c/oidc
       client-id: f50b59595f552d9c7b936b108c3c5fba
-      client-secret: dfd0931212c47bf1902d4dcfac1060bc   # TODO: 替换为 TOPIAM 应用详情中的客户端密钥
+      client-secret: dfd0931212c47bf1902d4dcfac1060bc
       # 显式固定回调地址，必须与 TOPIAM「登录 Redirect URI 白名单」某一条逐字符完全一致
       # （当前 TOPIAM 白名单为 127.0.0.1 版本；若白名单用 localhost，请同步改回 localhost）
       redirect-uri: http://127.0.0.1:9999/magic/web/oauth2/callback

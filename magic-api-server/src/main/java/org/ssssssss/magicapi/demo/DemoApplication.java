@@ -12,6 +12,6 @@ public class DemoApplication {
 
 	public static void main(String[] args) {
 		SpringApplication.run(DemoApplication.class, args);
-		logger.info("Magic API Demo 启动完成，编辑器地址: http://localhost:9999/magic/web/index.html");
+		logger.info("Magic API Server 启动完成");
 	}
 }
