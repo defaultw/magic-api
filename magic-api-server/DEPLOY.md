@@ -174,7 +174,24 @@ sudo chmod +x /opt/magic-api/backup-magic-api.sh
 sudo chown magic:magic /opt/magic-api/backup-magic-api.sh
 ```
 
-### 第 3 步：创建 systemd 服务
+### 第 3 步：创建凭据环境文件（敏感配置管理）
+
+凭据**绝不写入 jar/配置文件入库**。application.yml 中的 username/password/client-id/client-secret 均为环境变量占位符，生产环境用 systemd `EnvironmentFile` 注入：
+
+```bash
+sudo tee /opt/magic-api/magic-api.env >/dev/null <<'EOF'
+MAGIC_API_SECURITY_USERNAME=admin
+MAGIC_API_SECURITY_PASSWORD=<更换为新的强密码>
+MAGIC_API_OAUTH2_CLIENT_ID=<TOPIAM 应用 client-id>
+MAGIC_API_OAUTH2_CLIENT_SECRET=<TOPIAM 应用 client-secret>
+EOF
+sudo chmod 600 /opt/magic-api/magic-api.env      # 仅 root/magic 可读
+sudo chown magic:magic /opt/magic-api/magic-api.env
+```
+
+> ⚠️ **凭据轮换警告**：该工程曾将明文 client-secret/编辑器密码提交到远程仓库（历史提交已泄露）。仅从当前版本删除明文不能消除历史泄露，**必须先在 TOPIAM 控制台重置 client-secret、更换编辑器密码**，再把新值写入 env 文件。`magic-api.env` 与本地 `application-local.yml` 均已被 gitignore 排除，切勿手动 `git add -f` 提交。
+
+### 第 4 步：创建 systemd 服务
 
 `/etc/systemd/system/magic-api-server.service`（完整内容，直接复制）：
 
@@ -187,6 +204,8 @@ After=network.target
 Type=simple
 User=magic
 Group=magic
+# 注入敏感凭据（见第 3 步；文件权限必须 600）
+EnvironmentFile=/opt/magic-api/magic-api.env
 # 数据目录用绝对路径覆盖，与工作目录解耦；内存按服务器规格调整 -Xms/-Xmx
 ExecStart=/usr/bin/java -Xms256m -Xmx512m -jar /opt/magic-api/magic-api-server-2.2.2.jar --magic-api.resource.location=/var/lib/magic-api
 WorkingDirectory=/opt/magic-api
@@ -205,9 +224,10 @@ PrivateTmp=true
 WantedBy=multi-user.target
 ```
 
-> 端口、OIDC 等配置已内嵌在 jar 的 application.yml 中；如需覆盖，在 `ExecStart` 追加参数，如 `--server.port=8080`、`--spring.config.location=...`。
+> 端口等配置已内嵌在 jar 的 application.yml 中；如需覆盖，在 `ExecStart` 追加参数，如 `--server.port=8080`。
+> 凭据注入的两种等价方式：①上面的 EnvironmentFile（推荐，随 systemd 管理）；②在 `WorkingDirectory` 下放 `application-local.yml`（模板见工程内 `application-local.yml.example`，该文件不入库）。未注入时启动不报错，但 OIDC/密码登录不可用。
 
-### 第 4 步：启动与自启
+### 第 5 步：启动与自启
 
 ```bash
 sudo systemctl daemon-reload
@@ -215,7 +235,7 @@ sudo systemctl enable magic-api-server      # 开机自启
 sudo systemctl start magic-api-server       # 启动
 ```
 
-### 第 5 步：验证
+### 第 6 步：验证
 
 ```bash
 sudo systemctl status magic-api-server               # active (running)
@@ -226,7 +246,7 @@ ls /var/lib/magic-api                                # 数据目录出现 api/ �
 
 浏览器访问 `http://<服务器IP>:9999/magic/web/index.html`，登录后确认接口列表完整。
 
-### 第 6 步：防火墙
+### 第 7 步：防火墙
 
 ```bash
 sudo ufw allow 9999/tcp        # 或仅对内网放行：sudo ufw allow from 10.0.0.0/8 to any port 9999

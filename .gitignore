@@ -9,6 +9,8 @@ bin/
 .myeclipse
 .trae/tmp/*
 
+application-local.yml
+
 
 magic-api-plugins/magic-api-plugin-task/src/console/dist/*
 magic-api-plugins/magic-api-plugin-task/src/console/node_modules/*

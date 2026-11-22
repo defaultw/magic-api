@@ -1,0 +1,15 @@
+# ==================================================================
+# 本地凭据模板：复制为 application-local.yml 并填入真值
+#   cp application-local.yml.example application-local.yml
+# application-local.yml 已被 .gitignore 排除，绝不会提交入库。
+# 放置位置：JVM 启动时的工作目录（与 spring.config.import 的 ./ 相对路径对应）。
+# 也可不使用本文件，改为环境变量注入（见 DEPLOY.md「敏感配置管理」）。
+# ==================================================================
+
+magic-api:
+  security:
+    username: admin
+    password: <你的编辑器密码>
+    oauth2:
+      client-id: <TOPIAM 应用的 client-id>
+      client-secret: <TOPIAM 应用的 client-secret>

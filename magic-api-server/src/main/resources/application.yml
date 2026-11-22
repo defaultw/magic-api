@@ -1,6 +1,13 @@
 # ==================================================================
 # Magic API Server - OIDC 统一认证 + MCP 服务端
 #
+# 0. 敏感凭据不入库：本文件中 username/password/client-id/client-secret
+#    均为环境变量占位符。注入方式二选一：
+#      a) 工作目录放 application-local.yml（模板见同目录 application-local.yml.example，
+#         该文件已被 .gitignore 排除，不会提交）
+#      b) 运行时环境变量（生产 systemd 用 EnvironmentFile，见 DEPLOY.md「敏感配置管理」）
+#      未注入时启动不报错，但 OIDC/密码登录不可用。
+#      ⚠ 历史提交曾含明文凭据且已推送远程，请务必在 TOPIAM 轮换 client-secret 并更换编辑器密码。
 # 1. TOPIAM 应用「登录 Redirect URI 白名单」需与下方 redirect-uri 逐字符一致：
 #      http://127.0.0.1:9999/magic/web/oauth2/callback
 #    （请通过 http://127.0.0.1:9999/magic/web/index.html 访问编辑器）
@@ -18,6 +25,11 @@
 server:
   port: 9999
 
+# 可选导入工作目录下的 application-local.yml（本地凭据文件，不存在不报错）
+spring:
+  config:
+    import: "optional:file:./application-local.yml"
+
 magic-api:
   web: /magic/web
   prefix:                # 留空：不启用业务接口前缀（验证环境最简）
@@ -25,14 +37,14 @@ magic-api:
     type: file
     location: ./magic-api-files/   # 相对路径，实际目录 = JVM 启动时工作目录 + magic-api-files/（详见 DEPLOY.md「数据存储」）
   security:
-    username: admin
-    password: 123456
+    username: ${MAGIC_API_SECURITY_USERNAME:}   # 凭据经环境变量注入（见文件头说明），禁止明文入库
+    password: ${MAGIC_API_SECURITY_PASSWORD:}
     oauth2:
       enabled: true
       # TOPIAM OIDC 配置
       issuer: https://iam.xiaojiang.wang/api/v1/authorize/esvtb7mdq12gixytwzpaojailynovz6c/oidc
-      client-id: f50b59595f552d9c7b936b108c3c5fba
-      client-secret: dfd0931212c47bf1902d4dcfac1060bc
+      client-id: ${MAGIC_API_OAUTH2_CLIENT_ID:}
+      client-secret: ${MAGIC_API_OAUTH2_CLIENT_SECRET:}
       # 显式固定回调地址，必须与 TOPIAM「登录 Redirect URI 白名单」某一条逐字符完全一致
       # （当前 TOPIAM 白名单为 127.0.0.1 版本；若白名单用 localhost，请同步改回 localhost）
       redirect-uri: http://127.0.0.1:9999/magic/web/oauth2/callback
@@ -42,4 +54,4 @@ magic-api:
       # TOPIAM 强制要求 PKCE，必须开启（关闭会报 invalid_request: code_challenge）
       use-pkce: true
       auto-redirect: false          # true 时打开编辑器直接跳 TOPIAM
-      password-login-enabled: false # false：禁用密码登录，仅 OIDC；true：启用 admin/123456 密码回退
+      password-login-enabled: false # false：禁用密码登录，仅 OIDC；true：启用 admin/<编辑器密码> 密码回退
