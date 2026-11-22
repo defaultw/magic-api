@@ -7,6 +7,7 @@ out/
 .settings
 bin/
 .myeclipse
+.trae/tmp/*
 
 
 magic-api-plugins/magic-api-plugin-task/src/console/dist/*
