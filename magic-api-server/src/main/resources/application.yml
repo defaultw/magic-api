@@ -1,13 +1,14 @@
 # ==================================================================
-# Magic API Demo - OIDC 统一认证端到端验证
+# Magic API Server - OIDC 统一认证 + MCP 服务端
 #
 # 1. TOPIAM 应用「登录 Redirect URI 白名单」需与下方 redirect-uri 逐字符一致：
 #      http://127.0.0.1:9999/magic/web/oauth2/callback
 #    （请通过 http://127.0.0.1:9999/magic/web/index.html 访问编辑器）
-# 2. 启动方式（需在 magic-api-demo 目录下启动，file 存储用相对路径）：
-#      cd magic-api-demo
-#      java -jar target/magic-api-demo-2.2.2.jar
-#    （或 mvn -pl magic-api-demo spring-boot:run）
+# 2. 启动方式（需在 magic-api-server 目录下启动，file 存储用相对路径）：
+#      cd magic-api-server
+#      java -jar target/magic-api-server-2.2.2.jar
+#    （或 mvn -pl magic-api-server spring-boot:run）
+#    生产部署（systemd）与数据存储/备份说明见同目录 DEPLOY.md
 # 3. 验证流程：
 #      访问 http://127.0.0.1:9999/magic/web/index.html
 #      -> 点击「统一认证登录 / OIDC Login」按钮跳转 TOPIAM 授权页
@@ -22,7 +23,7 @@ magic-api:
   prefix:                # 留空：不启用业务接口前缀（验证环境最简）
   resource:
     type: file
-    location: ./magic-api-files/   # 相对路径，以启动 jar 时的工作目录为准（需在 magic-api-demo 目录下启动）
+    location: ./magic-api-files/   # 相对路径，实际目录 = JVM 启动时工作目录 + magic-api-files/（详见 DEPLOY.md「数据存储」）
   security:
     username: admin
     password: 123456

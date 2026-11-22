@@ -8,10 +8,10 @@
         <artifactId>magic-api-parent</artifactId>
         <version>2.2.2</version>
     </parent>
-    <artifactId>magic-api-demo</artifactId>
+    <artifactId>magic-api-server</artifactId>
     <packaging>jar</packaging>
-    <name>magic-api-demo</name>
-    <description>Demo application for end-to-end verification of OIDC login</description>
+    <name>magic-api-server</name>
+    <description>Standalone magic-api server with OIDC login and MCP support</description>
 
     <dependencies>
         <dependency>
