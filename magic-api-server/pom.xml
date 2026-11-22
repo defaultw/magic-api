@@ -46,7 +46,7 @@
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <version>${spring-boot.version}</version>
                 <configuration>
-                    <mainClass>org.ssssssss.magicapi.demo.DemoApplication</mainClass>
+                    <mainClass>org.ssssssss.magicapi.demo.ServerApplication</mainClass>
                 </configuration>
                 <executions>
                     <execution>
