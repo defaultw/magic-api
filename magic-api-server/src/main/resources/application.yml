@@ -41,6 +41,13 @@ magic-api:
   resource:
     type: file
     location: ./magic-api-files/   # 相对路径，实际目录 = JVM 启动时工作目录 + magic-api-files/（详见 DEPLOY.md「数据存储」）
+  task:
+    thread-name-prefix: magic-task- #线程池名字前缀
+    pool:
+      size: 8 #线程池大小，默认值为CPU核心数
+    shutdown:
+      awaitTermination: false #关闭时是否等待任务执行完毕，默认为false
+      awaitTerminationPeriod: 10s # 关闭时最多等待任务执行完毕的时间
   security:
     username: ${MAGIC_API_SECURITY_USERNAME:}   # 凭据经环境变量注入（见文件头说明），禁止明文入库
     password: ${MAGIC_API_SECURITY_PASSWORD:}
