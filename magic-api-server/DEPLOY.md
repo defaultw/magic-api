@@ -1,6 +1,6 @@
 # magic-api-server 部署文档（Ubuntu / systemd）
 
-本文档回答三个问题：**数据存在哪里**、**如何备份**、**如何在 Ubuntu 上用 systemd 部署**。
+本文档回答四个问题：**数据存在哪里**、**如何备份**、**如何在 Ubuntu 上用 systemd 部署**、**如何覆盖 jar 内置的 application.yml**。
 
 ---
 
@@ -184,6 +184,7 @@ MAGIC_API_SECURITY_USERNAME=admin
 MAGIC_API_SECURITY_PASSWORD=<更换为新的强密码>
 MAGIC_API_OAUTH2_CLIENT_ID=<TOPIAM 应用 client-id>
 MAGIC_API_OAUTH2_CLIENT_SECRET=<TOPIAM 应用 client-secret>
+MAGIC_API_MCP_TOKEN=<openssl rand -hex 32 生成，配置后 MCP 端点强制校验>
 EOF
 sudo chmod 600 /opt/magic-api/magic-api.env      # 仅 root/magic 可读
 sudo chown magic:magic /opt/magic-api/magic-api.env
@@ -224,7 +225,7 @@ PrivateTmp=true
 WantedBy=multi-user.target
 ```
 
-> 端口等配置已内嵌在 jar 的 application.yml 中；如需覆盖，在 `ExecStart` 追加参数，如 `--server.port=8080`。
+> 端口等配置已内嵌在 jar 的 application.yml 中；如需覆盖，在 `ExecStart` 追加参数，如 `--server.port=8080`。更多覆盖方式见「[四、如何覆盖 jar 内的 application.yml](#四如何覆盖-jar-内的-applicationyml)」。
 > 凭据注入的两种等价方式：①上面的 EnvironmentFile（推荐，随 systemd 管理）；②在 `WorkingDirectory` 下放 `application-local.yml`（模板见工程内 `application-local.yml.example`，该文件不入库）。未注入时启动不报错，但 OIDC/密码登录不可用。
 
 ### 第 5 步：启动与自启
@@ -273,3 +274,76 @@ http://<服务器IP>:9999/magic/web/oauth2/callback
 ```
 
 并在 application.yml（或启动参数 `--magic-api.security.oauth2.redirect-uri=...`）中同步修改，二者必须逐字符一致。
+
+---
+
+## 四、如何覆盖 jar 内的 application.yml
+
+jar 内的 `application.yml` 只是**默认值兜底**，Spring Boot 提供多种外置覆盖机制，按优先级从高到低：
+
+| 优先级 | 方式 | 适用场景 | 是否入库 |
+|---|---|---|---|
+| 1 | 命令行参数 `--key=value` | 临时覆盖 1~2 项（端口、存储路径） | — |
+| 2 | 环境变量 `MAGIC_API_*` / `SPRING_*` | systemd 生产部署（凭据已用此方式） | 否 |
+| 3 | 工作目录 `config/application.yml`（含 `config/*/` 子目录） | 服务器整份配置替换（运维主导） | 否 |
+| 4 | 工作目录 `application.yml` | 服务器整份配置替换（简版） | 否 |
+| 5 | jar 内 `application.yml` 经 `spring.config.import` 导入的 `application-local.yml` | 本机开发凭据注入 | 否 |
+| — | jar 内 `application.yml` | 默认兜底（不打也生效） | 是 |
+
+### 方式一：命令行参数（优先级最高，适合临时改）
+
+启动命令后追加 `--key=value`，每项一个参数，改动不用重新打包：
+
+```bash
+java -jar magic-api-server-2.2.2.jar --server.port=8080 --magic-api.resource.location=/var/lib/magic-api
+```
+
+systemd 中写在 `ExecStart` 末尾即可（本方案 unit 已用此方式指定数据目录）。
+
+### 方式二：环境变量（推荐，systemd 生产部署）
+
+Spring Boot 自动把环境变量映射为同名配置，`.` 变 `_`、大写。凭据注入已在「第 3 步」用此方式（`MAGIC_API_SECURITY_PASSWORD` → `magic-api.security.password`）。
+
+其他配置同理，如覆盖端口：
+
+```bash
+# 在 magic-api.env 中追加
+SERVER_PORT=8080
+```
+
+### 方式三：外置配置文件（适合整份替换 / 深度定制）
+
+外置文件按**工作目录**（`WorkingDirectory`，即执行 `java -jar` 命令时所在目录）查找，**不是 jar 文件所在目录**——本方案 unit 的 `WorkingDirectory=/opt/magic-api` 恰好与 jar 同目录，二者才等价。Spring Boot 2.4 默认查找顺序（越靠后优先级越高，逐层叠加覆盖 jar 内配置）：
+
+1. 工作目录 `config/application.yml`（以及 `config/*/` 各子目录中的 `application.yml`）
+2. 工作目录 `application.yml`
+3. jar 内 `application.yml`（兜底）；其经 `spring.config.import` 导入的 `application-local.yml` 高于 jar 内主文件、低于上述工作目录外置文件
+
+操作示例（服务器上想整体替换端口、存储路径、OIDC 全套配置）：
+
+```bash
+# jar 在 /opt/magic-api/ 下，创建外置配置
+sudo mkdir -p /opt/magic-api/config
+sudo tee /opt/magic-api/config/application.yml >/dev/null <<'EOF'
+server:
+  port: 8080
+
+magic-api:
+  resource:
+    type: file
+    location: /var/lib/magic-api
+  security:
+    oauth2:
+      redirect-uri: http://<服务器IP>:8080/magic/web/oauth2/callback
+EOF
+sudo chown -R magic:magic /opt/magic-api/config
+sudo systemctl restart magic-api-server
+```
+
+**只需写想覆盖的键**——外置文件与 jar 内 application.yml 按 key 合并，未写到的沿用 jar 内默认值。外置文件同样支持 `${MAGIC_API_*:}` 占位符引用环境变量。
+
+> ⚠️ 注意：
+> - 外置文件**不会**自动被 gitignore 排除，若放的是工程目录里请自行追加 `.gitignore`；`/opt/magic-api/` 本身在服务器上不入库
+> - 优先级叠加时，外置文件 > jar 内文件；同为外置时，上面列表越靠前优先级越高
+> - 确认生效：启动日志或 `curl http://127.0.0.1:8080/magic/web/config.json` 查看实际加载值
+

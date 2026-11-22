@@ -13,3 +13,6 @@ magic-api:
     oauth2:
       client-id: <TOPIAM 应用的 client-id>
       client-secret: <TOPIAM 应用的 client-secret>
+  # MCP 端点鉴权 token（配置后 /mcp/magic 强制校验 X-Mcp-Token 或 Authorization: Bearer）
+  mcp:
+    token: <随机长字符串，如 openssl rand -hex 32 生成>

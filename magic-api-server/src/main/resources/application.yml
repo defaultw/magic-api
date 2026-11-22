@@ -33,6 +33,11 @@ spring:
 magic-api:
   web: /magic/web
   prefix:                # 留空：不启用业务接口前缀（验证环境最简）
+  mcp:
+    enabled: true
+    # MCP 端点鉴权 token：配置后所有 /mcp/magic 请求必须携带 X-Mcp-Token 或 Authorization: Bearer <token>，
+    # 否则返回 401。经环境变量注入（可写入 application-local.yml 或生产 EnvironmentFile），禁止明文入库
+    token: ${MAGIC_API_MCP_TOKEN:}
   resource:
     type: file
     location: ./magic-api-files/   # 相对路径，实际目录 = JVM 启动时工作目录 + magic-api-files/（详见 DEPLOY.md「数据存储」）

@@ -39,13 +39,10 @@ public class McpController {
 
 	private final MagicApiTools tools;
 
-	private final String token;
-
 	private final String serverName;
 
-	public McpController(MagicApiTools tools, String token, String serverName) {
+	public McpController(MagicApiTools tools, String serverName) {
 		this.tools = tools;
-		this.token = token;
 		this.serverName = serverName;
 	}
 
@@ -60,10 +57,6 @@ public class McpController {
 		String method = body.path("method").asText(null);
 		if (StringUtils.isBlank(method)) {
 			return respond(McpProtocol.error(id, INVALID_REQUEST, "缺少 method 字段"));
-		}
-		// 可选鉴权
-		if (StringUtils.isNotBlank(token)) {
-			// 鉴权由拦截器完成，此处兜底
 		}
 		JsonNode params = body.get("params");
 		try {

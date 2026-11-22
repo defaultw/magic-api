@@ -11,6 +11,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplicat
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.HandlerInterceptor;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -24,7 +26,17 @@ import java.util.List;
 @Configuration
 @ConditionalOnWebApplication
 @ConditionalOnProperty(prefix = "magic-api.mcp", name = "enabled", havingValue = "true", matchIfMissing = true)
-public class McpAutoConfiguration {
+public class McpAutoConfiguration implements WebMvcConfigurer {
+
+	private final String token;
+
+	private final String mcpPath;
+
+	public McpAutoConfiguration(@Value("${magic-api.mcp.token:}") String token,
+								@Value("${magic-api.mcp.path:/mcp/magic}") String mcpPath) {
+		this.token = token;
+		this.mcpPath = mcpPath;
+	}
 
 	@Bean
 	@ConditionalOnMissingBean(MagicApiTools.class)
@@ -36,17 +48,16 @@ public class McpAutoConfiguration {
 	@Bean
 	@ConditionalOnMissingBean(McpController.class)
 	public McpController mcpController(MagicApiTools tools,
-									   @Value("${magic-api.mcp.token:}") String token,
 									   @Value("${magic-api.mcp.server-name:magic-api-mcp}") String serverName) {
-		return new McpController(tools, token, serverName);
+		return new McpController(tools, serverName);
 	}
 
 	/**
-	 * 可选鉴权拦截器：magic-api.mcp.token 非空时校验 X-Mcp-Token / Authorization
+	 * 可选鉴权拦截器：magic-api.mcp.token 非空时校验 X-Mcp-Token / Authorization: Bearer
 	 */
 	@Bean
 	@ConditionalOnMissingBean(name = "magicApiMcpTokenInterceptor")
-	public HandlerInterceptor magicApiMcpTokenInterceptor(@Value("${magic-api.mcp.token:}") String token) {
+	public HandlerInterceptor magicApiMcpTokenInterceptor() {
 		if (StringUtils.isBlank(token)) {
 			return new HandlerInterceptor() {
 				@Override
@@ -74,5 +85,13 @@ public class McpAutoConfiguration {
 				return true;
 			}
 		};
+	}
+
+	/**
+	 * 将 token 拦截器注册到 MVC 拦截器链（仅拦截 MCP 端点路径）
+	 */
+	@Override
+	public void addInterceptors(InterceptorRegistry registry) {
+		registry.addInterceptor(magicApiMcpTokenInterceptor()).addPathPatterns(mcpPath);
 	}
 }
