@@ -1,0 +1,16 @@
+# 作用域：magic-api-server/Dockerfile（构建上下文 = 仓库根目录）
+# 目标：上下文只保留 Maven 源码，剔除本地数据/凭据/构建产物/IDE 文件
+
+**/target
+**/node_modules
+**/magic-api-files
+**/magic-api-data
+**/magic-api.env
+**/application-local.yml
+.git
+.gitignore
+.trae
+.idea
+**/*.iml
+out
+bin

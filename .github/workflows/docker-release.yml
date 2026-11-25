@@ -1,0 +1,104 @@
+name: docker-release
+
+# ==================================================================
+# magic-api-server 镜像发布流水线
+#
+# 触发方式：
+#   1. 发布 GitHub Release（tag 如 v2.2.2 或 2.2.2）→ 自动推送
+#      docker.io/defaultw/magic-api-server:<version> 与 :latest
+#   2. Actions 页手动触发（Run workflow）→ 指定版本，可选是否更新 latest
+#
+# 前置配置（仓库 Settings → Secrets and variables → Actions）：
+#   DOCKERHUB_USERNAME  Docker Hub 用户名
+#   DOCKERHUB_TOKEN     Docker Hub Access Token
+#   （Docker Hub → Account Settings → Security → New Access Token 生成）
+# ==================================================================
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '要发布的版本号（如 2.2.2 或 v2.2.2，自动去 v 前缀）'
+        required: true
+        type: string
+      push_latest:
+        description: '是否同时更新 latest 标签'
+        required: false
+        type: boolean
+        default: true
+
+env:
+  IMAGE: defaultw/magic-api-server
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # release 事件取 tag_name，dispatch 事件取输入 version；
+      # 统一去 v 前缀；push_latest=false（仅 dispatch 可选）时不附加 latest
+      - name: 归一化版本号与 tag 列表
+        id: ver
+        env:
+          RAW_VERSION: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.version }}
+          PUSH_LATEST: ${{ github.event_name == 'release' && 'true' || inputs.push_latest }}
+          IMAGE: ${{ env.IMAGE }}
+        run: |
+          VERSION="${RAW_VERSION#v}"
+          TAGS="${IMAGE}:${VERSION}"
+          if [ "$PUSH_LATEST" = "true" ]; then
+            TAGS="$(printf '%s\n%s' "${TAGS}" "${IMAGE}:latest")"
+          fi
+          {
+            echo "version=${VERSION}"
+            echo "push_latest=${PUSH_LATEST}"
+            echo "tags<<EOF"
+            echo "${TAGS}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          echo "推送 tag 列表:"
+          echo "${TAGS}"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # 构建上下文 = 仓库根（多模块 Maven 工程），自动读取
+      # magic-api-server/Dockerfile.dockerignore 剔除无关内容
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: magic-api-server/Dockerfile
+          push: true
+          tags: ${{ steps.ver.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: 记录镜像 digest
+        if: always()
+        run: |
+          REF="${IMAGE}:${{ steps.ver.outputs.version }}"
+          echo "image=${REF}" > digest.txt
+          echo "push_latest=${{ steps.ver.outputs.push_latest }}" >> digest.txt
+          DIGEST="$(docker buildx imagetools inspect "${REF}" --format '{{json .Manifest.Digest}}' 2>/dev/null || echo 'push-failed-or-skipped')"
+          echo "digest=${DIGEST}" >> digest.txt
+          cat digest.txt
+
+      - name: Upload digest artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-digest
+          path: digest.txt
+          if-no-files-found: warn
+          retention-days: 30

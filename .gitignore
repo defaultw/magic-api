@@ -19,3 +19,7 @@ magic-api-plugins/magic-api-plugin-task/src/console/package-lock.json
 magic-api-plugins/magic-api-plugin-component/src/console/dist/*
 magic-api-plugins/magic-api-plugin-component/src/console/node_modules/*
 magic-api-plugins/magic-api-plugin-component/src/console/package-lock.json
+
+# Docker 部署：凭据文件与容器数据目录（见 magic-api-server/docker-compose.yml）
+magic-api-server/magic-api.env
+magic-api-server/magic-api-data/
