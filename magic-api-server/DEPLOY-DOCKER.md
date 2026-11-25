@@ -48,10 +48,10 @@ curl.exe -s -o NUL -w "%{http_code}" http://127.0.0.1:9999/magic/web/index.html 
 
 ## 三、从 Docker Hub 拉取镜像（推荐）
 
-不想本地构建时，可直接拉取 CI 自动发布的官方镜像（发布机制见第十四节），跳过本地 Maven/npm 构建：
+不想本地构建时，可直接拉取 CI 自动发布的官方镜像（发布机制见第十四节），跳过本地 Maven/npm 构建。镜像命名空间即 Docker Hub 用户名（下文以 `<username>` 占位，替换为你的 `DOCKERHUB_USERNAME`，当前为 `wangxiaojiang10088`）：
 
 ```bash
-docker pull defaultw/magic-api-server:2.2.2
+docker pull wangxiaojiang10088/magic-api-server:2.2.2
 ```
 
 **tag 规则：**
@@ -72,7 +72,7 @@ docker run -d --name magic-api-server \
   -e TZ=Asia/Shanghai \
   -e JAVA_OPTS="-Xms256m -Xmx512m" \
   --restart unless-stopped \
-  defaultw/magic-api-server:2.2.2
+  wangxiaojiang10088/magic-api-server:2.2.2
 ```
 
 ```powershell
@@ -84,7 +84,7 @@ docker run -d --name magic-api-server `
   -e TZ=Asia/Shanghai `
   -e JAVA_OPTS="-Xms256m -Xmx512m" `
   --restart unless-stopped `
-  defaultw/magic-api-server:2.2.2
+  wangxiaojiang10088/magic-api-server:2.2.2
 ```
 
 > `--env-file` 要求文件必须存在；暂无凭据时直接省略该参数。
@@ -484,7 +484,7 @@ docker compose up -d
 
 ## 十四、CI 自动发布镜像（GitHub Actions）
 
-仓库内置 workflow [docker-release.yml](../.github/workflows/docker-release.yml)，自动构建并推送镜像到 Docker Hub `defaultw/magic-api-server`。
+仓库内置 workflow [docker-release.yml](../.github/workflows/docker-release.yml)，自动构建并推送镜像到 Docker Hub。镜像命名空间动态取自 Secret `DOCKERHUB_USERNAME`（当前为 `wangxiaojiang10088`，换账号只需更新该 Secret，无需改 workflow），镜像名即 `<DOCKERHUB_USERNAME>/magic-api-server`。
 
 ### 14.1 两种触发方式
 
@@ -499,9 +499,9 @@ docker compose up -d
 
 workflow 推送前需先在仓库配置凭据（只配一次）：
 
-1. 生成 Docker Hub Access Token：Docker Hub → **Account Settings** → **Security** → **New Access Token**（权限 Read/Write）。
+1. 生成 Docker Hub Access Token：Docker Hub → **Account Settings** → **Security** → **New Access Token**，权限必须选 **Read & Write**（默认 Read-only 会报 `insufficient_scope: authorization failed`）。
 2. 写入仓库 Secrets：GitHub 仓库 → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**，添加两条：
-   - `DOCKERHUB_USERNAME`：Docker Hub 用户名
+   - `DOCKERHUB_USERNAME`：Docker Hub 用户名（如 `wangxiaojiang10088`，不能用邮箱；同时决定镜像命名空间）
    - `DOCKERHUB_TOKEN`：上一步生成的 Access Token
 
 未配置 Secrets 时：构建步骤正常执行，登录/推送步骤失败并提示配置（构建失败不影响本地使用）。
@@ -513,14 +513,14 @@ workflow 推送前需先在仓库配置凭据（只配一次）：
 gh release create v2.2.3 --title "v2.2.3" --notes "..."
 
 # 2. 在 Actions 页观察构建进度，完成后验证远端镜像
-docker manifest inspect defaultw/magic-api-server:2.2.3
-docker pull defaultw/magic-api-server:2.2.3
+docker manifest inspect wangxiaojiang10088/magic-api-server:2.2.3
+docker pull wangxiaojiang10088/magic-api-server:2.2.3
 ```
 
 每次运行会在 run 页面生成 `image-digest` artifact（含镜像 digest 与推送结果，保留 30 天），排障时下载查看。
 
 ### 14.4 CI 构建 vs 本地构建
 
-- CI 镜像（`defaultw/magic-api-server`）：由 GitHub Actions 构建推送，适合服务器直接 `docker pull`（见第三节），免本地 Maven/npm 环境。
+- CI 镜像（`<DOCKERHUB_USERNAME>/magic-api-server`，即 `wangxiaojiang10088/magic-api-server`）：由 GitHub Actions 构建推送，适合服务器直接 `docker pull`（见第三节），免本地 Maven/npm 环境。
 - 本地构建（第四节）：适合内网/离线环境、需要修改 Dockerfile 或在推送前自验证的场景。
 - 两者产出的镜像内容一致（同一 Dockerfile、同一构建上下文规则）。

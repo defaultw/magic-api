@@ -5,12 +5,12 @@ name: docker-release
 #
 # 触发方式：
 #   1. 发布 GitHub Release（tag 如 v2.2.2 或 2.2.2）→ 自动推送
-#      docker.io/defaultw/magic-api-server:<version> 与 :latest
+#      docker.io/<DOCKERHUB_USERNAME>/magic-api-server:<version> 与 :latest
 #   2. Actions 页手动触发（Run workflow）→ 指定版本，可选是否更新 latest
 #
 # 前置配置（仓库 Settings → Secrets and variables → Actions）：
-#   DOCKERHUB_USERNAME  Docker Hub 用户名
-#   DOCKERHUB_TOKEN     Docker Hub Access Token
+#   DOCKERHUB_USERNAME  Docker Hub 用户名（同时决定镜像命名空间，换账号只改这里）
+#   DOCKERHUB_TOKEN     Docker Hub Access Token（权限需 Read & Write）
 #   （Docker Hub → Account Settings → Security → New Access Token 生成）
 # ==================================================================
 
@@ -30,7 +30,8 @@ on:
         default: true
 
 env:
-  IMAGE: defaultw/magic-api-server
+  # 镜像命名空间动态取自 Secret，换 Docker Hub 账号只需更新 DOCKERHUB_USERNAME
+  IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/magic-api-server
 
 jobs:
   build-and-push:
