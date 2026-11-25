@@ -30,8 +30,9 @@ on:
         default: true
 
 env:
-  # 镜像命名空间动态取自 Secret，换 Docker Hub 账号只需更新 DOCKERHUB_USERNAME
-  IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/magic-api-server
+  # 镜像仓库名（不含命名空间）。命名空间动态取自 Secret DOCKERHUB_USERNAME，
+  # 在归一化步骤拼出完整镜像名（workflow 级 env 不支持 secrets 上下文）
+  REPO_NAME: magic-api-server
 
 jobs:
   build-and-push:
@@ -47,7 +48,7 @@ jobs:
         env:
           RAW_VERSION: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.version }}
           PUSH_LATEST: ${{ github.event_name == 'release' && 'true' || inputs.push_latest }}
-          IMAGE: ${{ env.IMAGE }}
+          IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.REPO_NAME }}
         run: |
           VERSION="${RAW_VERSION#v}"
           TAGS="${IMAGE}:${VERSION}"
@@ -57,6 +58,7 @@ jobs:
           {
             echo "version=${VERSION}"
             echo "push_latest=${PUSH_LATEST}"
+            echo "image=${IMAGE}"
             echo "tags<<EOF"
             echo "${TAGS}"
             echo "EOF"
@@ -76,6 +78,7 @@ jobs:
       # 构建上下文 = 仓库根（多模块 Maven 工程），自动读取
       # magic-api-server/Dockerfile.dockerignore 剔除无关内容
       - name: Build and push
+        id: build-push
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -87,8 +90,11 @@ jobs:
 
       - name: 记录镜像 digest
         if: always()
+        env:
+          IMAGE: ${{ steps.ver.outputs.image }}
+          VERSION: ${{ steps.ver.outputs.version }}
         run: |
-          REF="${IMAGE}:${{ steps.ver.outputs.version }}"
+          REF="${IMAGE}:${VERSION}"
           echo "image=${REF}" > digest.txt
           echo "push_latest=${{ steps.ver.outputs.push_latest }}" >> digest.txt
           DIGEST="$(docker buildx imagetools inspect "${REF}" --format '{{json .Manifest.Digest}}' 2>/dev/null || echo 'push-failed-or-skipped')"
@@ -103,3 +109,15 @@ jobs:
           path: digest.txt
           if-no-files-found: warn
           retention-days: 30
+
+      # 同步 Short description + README 到 Docker Hub 仓库页面
+      # （magic-api-server/DOCKERHUB_README.md 即 Docker Hub 展示的详细描述）
+      - name: Sync Docker Hub description
+        if: always() && steps.ver.outcome == 'success' && steps.build-push.outcome == 'success'
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ steps.ver.outputs.image }}
+          short-description: 'magic-api 服务端开箱即用镜像：Web 编辑器在线开发 HTTP API，无需重启实时发布'
+          readme-filepath: magic-api-server/DOCKERHUB_README.md
