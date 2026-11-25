@@ -1,6 +1,6 @@
 # magic-api-server Docker 部署操作手册（Docker Compose）
 
-一句话简介：本手册给出 magic-api-server 基于 Docker / Docker Compose 的完整部署流程——镜像构建、容器运行、数据持久化、凭据注入、OIDC 回调配置、备份恢复与日常运维，所有命令可直接复制执行。
+一句话简介：本手册给出 magic-api-server 基于 Docker / Docker Compose 的完整部署流程——镜像构建、容器运行、数据持久化、凭据注入、登录认证与 OIDC 回调（可选）、备份恢复与日常运维，所有命令可直接复制执行。
 
 > **与 [DEPLOY.md](DEPLOY.md) 的关系**：[DEPLOY.md](DEPLOY.md) 是 Ubuntu + systemd 的传统部署路线；本文档是 **Docker 路线**。两条路线的数据文件格式与凭据环境变量完全一致，数据可在两者间互相迁移（见第六节）。
 
@@ -42,7 +42,7 @@ curl.exe -s -o NUL -w "%{http_code}" http://127.0.0.1:9999/magic/web/index.html 
 
 浏览器访问编辑器：`http://127.0.0.1:9999/magic/web/index.html`。
 
-> 未注入凭据时启动不报错，但 OIDC / 密码登录不可用，注入方式见第七节。
+> 默认以账号密码登录（admin/123456）开箱即用；生产环境务必用环境变量覆盖默认密码，OIDC 统一认证默认关闭、按需启用，见第七节。
 
 ---
 
@@ -254,7 +254,7 @@ docker compose start
 
 ## 七、凭据注入
 
-jar 内 application.yml 的 username/password/client-id/client-secret/mcp token 均为环境变量占位符；未注入时启动不报错，但 OIDC / 密码登录与 MCP 鉴权不可用。
+jar 内 application.yml 的全部认证项均为环境变量占位符。默认账号密码登录 admin/123456 开箱即用（公开默认凭据，生产必须覆盖）；OIDC 统一认证默认关闭；MCP token 默认空（不鉴权）。
 
 ### 7.1 法一：magic-api.env（推荐）
 
@@ -265,13 +265,16 @@ cp magic-api.env.example magic-api.env        # PowerShell: Copy-Item magic-api.
 docker compose up -d                           # 重新创建容器使新变量生效
 ```
 
-| 变量 | 用途 |
-|---|---|
-| `MAGIC_API_SECURITY_USERNAME` | 编辑器密码登录用户名 |
-| `MAGIC_API_SECURITY_PASSWORD` | 编辑器密码登录密码 |
-| `MAGIC_API_OAUTH2_CLIENT_ID` | TOPIAM OIDC 应用 client-id |
-| `MAGIC_API_OAUTH2_CLIENT_SECRET` | TOPIAM OIDC 应用 client-secret |
-| `MAGIC_API_MCP_TOKEN` | MCP 端点鉴权 token |
+| 变量 | 用途 | 默认值 |
+|---|---|---|
+| `MAGIC_API_SECURITY_USERNAME` | 编辑器登录用户名 | `admin`（公开默认，生产必须覆盖） |
+| `MAGIC_API_SECURITY_PASSWORD` | 编辑器登录密码 | `123456`（公开默认，生产必须覆盖） |
+| `MAGIC_API_OAUTH2_ENABLED` | 统一认证（OIDC/SSO）开关 | `false` |
+| `MAGIC_API_OAUTH2_CLIENT_ID` | OIDC 应用 client-id（启用 OIDC 时必填） | 空 |
+| `MAGIC_API_OAUTH2_CLIENT_SECRET` | OIDC 应用 client-secret（启用 OIDC 时必填） | 空 |
+| `MAGIC_API_SECURITY_PASSWORD_LOGIN_ENABLED` | 密码登录开关（OIDC 启用时仍可并存） | `true` |
+| `MAGIC_API_OAUTH2_AUTO_REDIRECT` | 打开编辑器自动跳转 OIDC 授权页 | `false` |
+| `MAGIC_API_MCP_TOKEN` | MCP 端点鉴权 token | 空（不鉴权） |
 
 - compose 的 `env_file` 为 `required: false`：`magic-api.env` 缺失不阻断启动。
 - `magic-api.env` 已被 .gitignore 排除，切勿提交入库。
@@ -295,16 +298,37 @@ curl -i http://127.0.0.1:9999/mcp/magic -H "X-Mcp-Token: <MAGIC_API_MCP_TOKEN �
 
 > ⚠ **宿主机文件不存在时不能放开该行**——Docker 会把不存在的宿主机路径按目录创建出同名空目录，挂载即错。
 
-### 7.3 法三（补充）：结构化覆盖 /app/config/application.yml
+### 7.3 法三（补充）：改密 / 关闭密码登录（环境变量，推荐）
 
-默认 `password-login-enabled=false`（仅 OIDC 登录）。启用密码登录这类**没有环境变量占位符**的键，推荐 Spring Boot 外置配置：挂载 `/app/config/application.yml:ro`（工作目录 `/app`，`config/` 子目录优先级高于 jar 内配置），**只写想覆盖的键**：
+改密 = 覆盖 `MAGIC_API_SECURITY_USERNAME` / `MAGIC_API_SECURITY_PASSWORD`。在 `magic-api.env` 中更新两行后 `docker compose up -d` 重建容器；`docker run` 等价方式：
+
+```bash
+docker run -d --name magic-api-server \
+  -p 9999:9999 \
+  -v "$(pwd)/magic-api-data:/data/magic-api" \
+  -e MAGIC_API_SECURITY_USERNAME=admin \
+  -e MAGIC_API_SECURITY_PASSWORD='<强密码>' \
+  --restart unless-stopped \
+  magic-api-server:2.2.2    # 其余参数（env-file、TZ、JAVA_OPTS 等）见 5.2
+```
+
+仅 OIDC 模式（关闭密码登录，需先配好 `MAGIC_API_OAUTH2_CLIENT_ID` / `MAGIC_API_OAUTH2_CLIENT_SECRET`）：
+
+```bash
+-e MAGIC_API_OAUTH2_ENABLED=true -e MAGIC_API_SECURITY_PASSWORD_LOGIN_ENABLED=false
+```
+
+**高级：挂载配置覆盖任意键**
+
+`issuer`、`redirect-uri` 等键没有显式环境变量占位符，可用 Spring Boot 外置配置覆盖：挂载 `/app/config/application.yml:ro`（工作目录 `/app`，`config/` 子目录优先级高于 jar 内配置），**只写想覆盖的键**：
 
 ```yaml
 magic-api:
   security:
     oauth2:
+      issuer: https://<oidc-server>
       redirect-uri: http://<host>:9999/magic/web/oauth2/callback   # 与 TOPIAM 白名单逐字符一致
-      password-login-enabled: true                                  # 启用 admin/<编辑器密码> 密码回退
+      # password-login-enabled 已有环境变量 MAGIC_API_SECURITY_PASSWORD_LOGIN_ENABLED，无需在此覆盖
 ```
 
 > 同样注意宿主机文件不存在时不要挂载；`ENTRYPOINT` 已强制注入 `--magic-api.resource.location`（命令行优先级最高），数据目录固定 `/data/magic-api`，勿在此文件改 `resource.location`。
@@ -338,6 +362,8 @@ curl.exe -s -o NUL -w "%{http_code}" http://127.0.0.1:9999/magic/web/index.html
 
 ## 九、OIDC 回调白名单
 
+OIDC 统一认证为**可选功能**，默认关闭；启用方式见第七节 `MAGIC_API_OAUTH2_ENABLED=true`。
+
 内置默认 `redirect-uri: http://127.0.0.1:9999/magic/web/oauth2/callback`，**仅适用于本机 127.0.0.1 访问编辑器**。改用 IP / 域名访问时：
 
 1. **TOPIAM 应用白名单**：「登录 Redirect URI 白名单」添加 `http://<host>:9999/magic/web/oauth2/callback`（`<host>` 为服务器 IP 或域名）。
@@ -348,7 +374,7 @@ curl.exe -s -o NUL -w "%{http_code}" http://127.0.0.1:9999/magic/web/index.html
      MAGIC_API_SECURITY_OAUTH2_REDIRECTURI=http://<host>:9999/magic/web/oauth2/callback
      ```
 
-   - 挂载 config/application.yml（见 6.3）写 `redirect-uri`：
+   - 挂载 config/application.yml（见 7.3）写 `redirect-uri`：
 
      ```yaml
      magic-api:

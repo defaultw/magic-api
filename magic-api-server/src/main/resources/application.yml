@@ -1,26 +1,32 @@
 # ==================================================================
-# Magic API Server - OIDC 统一认证 + MCP 服务端
+# Magic API Server - 账号密码登录（默认开启）+ 可选 OIDC 统一认证 + MCP 服务端
 #
-# 0. 敏感凭据不入库：本文件中 username/password/client-id/client-secret
-#    均为环境变量占位符。注入方式二选一：
-#      a) 工作目录放 application-local.yml（模板见同目录 application-local.yml.example，
-#         该文件已被 .gitignore 排除，不会提交）
-#      b) 运行时环境变量（生产 systemd 用 EnvironmentFile，见 DEPLOY.md「敏感配置管理」）
-#      未注入时启动不报错，但 OIDC/密码登录不可用。
-#      ⚠ 历史提交曾含明文凭据且已推送远程，请务必在 TOPIAM 轮换 client-secret 并更换编辑器密码。
-# 1. TOPIAM 应用「登录 Redirect URI 白名单」需与下方 redirect-uri 逐字符一致：
+# 0. 开箱即用：默认账号 admin / 密码 123456（公开默认凭据，非个人秘密）。
+#    生产环境必须用环境变量覆盖：
+#      MAGIC_API_SECURITY_USERNAME / MAGIC_API_SECURITY_PASSWORD
+# 1. 全部认证配置均有环境变量占位符（Docker 注入见 DEPLOY-DOCKER.md 第七节）：
+#      MAGIC_API_SECURITY_USERNAME / MAGIC_API_SECURITY_PASSWORD   编辑器账号密码（默认 admin/123456）
+#      MAGIC_API_OAUTH2_ENABLED                                    统一认证开关（默认 false）
+#      MAGIC_API_OAUTH2_CLIENT_ID / MAGIC_API_OAUTH2_CLIENT_SECRET OIDC 应用凭据（启用 OIDC 时必填）
+#      MAGIC_API_SECURITY_PASSWORD_LOGIN_ENABLED                   密码登录开关（默认 true）
+#      MAGIC_API_OAUTH2_AUTO_REDIRECT                              打开编辑器自动跳转授权页（默认 false）
+#      MAGIC_API_MCP_TOKEN                                         MCP 端点鉴权 token（默认空=不鉴权）
+#    也可工作目录放 application-local.yml 注入（模板见同目录 application-local.yml.example，
+#    已被 .gitignore 排除，不会提交）。
+# 2. OIDC（可选）：enabled=true 时编辑器出现「统一认证登录 / OIDC Login」按钮。
+#    TOPIAM 应用「登录 Redirect URI 白名单」需与 redirect-uri 逐字符一致：
 #      http://127.0.0.1:9999/magic/web/oauth2/callback
 #    （请通过 http://127.0.0.1:9999/magic/web/index.html 访问编辑器）
-# 2. 启动方式（需在 magic-api-server 目录下启动，file 存储用相对路径）：
+# 3. 启动方式（需在 magic-api-server 目录下启动，file 存储用相对路径）：
 #      cd magic-api-server
 #      java -jar target/magic-api-server-2.2.2.jar
 #    （或 mvn -pl magic-api-server spring-boot:run）
-#    生产部署（systemd）与数据存储/备份说明见同目录 DEPLOY.md
-# 3. 验证流程：
-#      访问 http://127.0.0.1:9999/magic/web/index.html
-#      -> 点击「统一认证登录 / OIDC Login」按钮跳转 TOPIAM 授权页
-#      -> 授权后回调 http://127.0.0.1:9999/magic/web/oauth2/callback
-#      -> 302 回 index.html?magic-token=... 完成登录
+#    生产部署（systemd）见同目录 DEPLOY.md；Docker 部署见 DEPLOY-DOCKER.md
+# 4. 验证流程：
+#      默认：访问 http://127.0.0.1:9999/magic/web/index.html -> admin/123456 登录
+#      OIDC：MAGIC_API_OAUTH2_ENABLED=true -> 登录页点击「统一认证登录」跳转 IdP
+#            -> 回调 /magic/web/oauth2/callback -> 302 回 index.html?magic-token=...
+# 5. ⚠ 历史提交曾含明文凭据且已推送远程，请务必在 TOPIAM 轮换 client-secret 并更换编辑器密码。
 # ==================================================================
 server:
   port: 9999
@@ -49,10 +55,10 @@ magic-api:
       awaitTermination: false #关闭时是否等待任务执行完毕，默认为false
       awaitTerminationPeriod: 10s # 关闭时最多等待任务执行完毕的时间
   security:
-    username: ${MAGIC_API_SECURITY_USERNAME:}   # 凭据经环境变量注入（见文件头说明），禁止明文入库
-    password: ${MAGIC_API_SECURITY_PASSWORD:}
+    username: ${MAGIC_API_SECURITY_USERNAME:admin}   # 默认公开凭据 admin/123456，生产必须用环境变量覆盖（见文件头）
+    password: ${MAGIC_API_SECURITY_PASSWORD:123456}
     oauth2:
-      enabled: true
+      enabled: ${MAGIC_API_OAUTH2_ENABLED:false}   # 默认关闭统一认证；true 需同时注入 client-id/client-secret
       # TOPIAM OIDC 配置
       issuer: https://iam.xiaojiang.wang/api/v1/authorize/esvtb7mdq12gixytwzpaojailynovz6c/oidc
       client-id: ${MAGIC_API_OAUTH2_CLIENT_ID:}
@@ -65,5 +71,5 @@ magic-api:
       scopes: openid
       # TOPIAM 强制要求 PKCE，必须开启（关闭会报 invalid_request: code_challenge）
       use-pkce: true
-      auto-redirect: false          # true 时打开编辑器直接跳 TOPIAM
-      password-login-enabled: false # false：禁用密码登录，仅 OIDC；true：启用 admin/<编辑器密码> 密码回退
+      auto-redirect: ${MAGIC_API_OAUTH2_AUTO_REDIRECT:false}   # true 时打开编辑器直接跳转 IdP 授权页
+      password-login-enabled: ${MAGIC_API_SECURITY_PASSWORD_LOGIN_ENABLED:true} # 默认启用账号密码登录；false 时仅 OIDC
